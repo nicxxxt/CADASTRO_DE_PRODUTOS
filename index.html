@@ -1,132 +1,166 @@
+
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Estoque - POO (V5)</title>
+    <title>Sistema de Estoque V6</title>
     <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
 </head>
 <body>
-    <div class="container">
 
-        <!-- ASSINATURA DA CRIADORA -->
-        <div class="criadora">
-            <img src="foto.jpg" alt="Foto da Nicole">
-            <p>Essa sou eu, Nicole, criadora do código ♡</p>
-        </div>
+    <main class="container">
 
-        <h1>Cadastro de Produtos - VERSÃO 5</h1>
+        <header class="cabecalho">
+            <span class="etiqueta">SISTEMA DE GERENCIAMENTO</span>
+            <h1>Controle de Estoque</h1>
+            <p>Gerencie seus produtos de forma simples e inteligente.</p>
+        </header>
 
-        <!-- Formulário de Entrada -->
-        <form id="produto-form" novalidate>
+       <div class="perfil-nicole">
+    <img src="foto.jpg" alt="Foto da Nicole">
 
-            <!-- V5: Container para mensagens inline de erro/sucesso -->
-            <div id="mensagem-feedback" class="mensagem-feedback" role="alert" aria-live="polite" hidden></div>
-
-            <div class="form-group">
-                <label for="nome">Nome do Produto:</label>
-                <input type="text" id="nome" placeholder="Ex. Notebook" autocomplete="off">
-            </div>
-
-            <div class="form-group">
-                <label for="preco">Preço (R$):</label>
-                <input type="number" id="preco" step="0.01" min="0.01" placeholder="Ex. 3500.00">
-            </div>
-
-            <div class="form-group">
-                <label for="quantidade">Quantidade:</label>
-                <input type="number" id="quantidade" min="1" step="1" placeholder="Ex. 5">
-            </div>
-
-            <button type="submit" class="btn btn-primary">
-                Adicionar Produto
-            </button>
-
-        </form>
-
-        <!-- Cabeçalho de Ações e Resumo -->
-        <div class="resumo-container">
-            <h3 id="total-estoque">
-                Total em Estoque: R$ 0,00
-            </h3>
-
-            <button type="button" id="limpar-tabela" class="btn-danger">
-                Limpar Tudo
-            </button>
-        </div>
-
-        <!-- Botão para abrir o Modal do Conceito Bootstrap (V5) -->
-        <div class="area-bootstrap">
-            <button type="button" id="btn-conceito-bootstrap" class="btn-bootstrap">
-                Ver Conceito Bootstrap
-            </button>
-        </div>
-
-        <!-- Campo de Pesquisa Dinâmica -->
-        <div class="form-group campo-pesquisa">
-            <label for="campo-busca">Pesquisar Produto:</label>
-            <input type="text" id="campo-busca" placeholder="Digite o nome do produto...">
-        </div>
-
-        <!-- Mensagem quando não encontrar produtos -->
-        <p id="mensagem-vazia" class="mensagem-vazia" hidden>
-            Nenhum produto encontrado.
+    <div class="texto-perfil">
+        <h3>Olá, sou a Nicole! 💜</h3>
+        <p>
+            Criadora do Cadastro de Produtos.
+            Aproveite!
         </p>
-
-        <!-- Tabela de Exibição -->
-        <table id="tabela-produtos">
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Preço Un.</th>
-                    <th>Qtd</th>
-                    <th>Subtotal</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- As linhas da tabela serão inseridas pelo JS -->
-            </tbody>
-        </table>
-
     </div>
+</div>
+       
+        <section class="resumo">
+            <article class="card">
+                <span>Total de produtos</span>
+                <h2 id="quantidade-produtos">0</h2>
+            </article>
 
-    <!-- =====================================================
-         MODAL DE CONFIRMAÇÃO CUSTOMIZADO (V5)
-    ===================================================== -->
-    <div id="modal-confirmacao" class="modal-overlay" hidden>
-        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-            <h3 id="modal-titulo">Confirmação de Ação</h3>
-            <p id="modal-mensagem">Deseja realmente prosseguir?</p>
-            <div class="modal-botoes">
-                <button type="button" id="modal-btn-cancelar" class="btn-secundario">Cancelar</button>
-                <button type="button" id="modal-btn-confirmar" class="btn-danger">Confirmar</button>
+            <article class="card">
+                <span>Unidades em estoque</span>
+                <h2 id="total-estoque">0</h2>
+            </article>
+
+            <article class="card alerta">
+                <span>Estoque baixo</span>
+                <h2 id="produtos-baixos">0</h2>
+            </article>
+        </section>
+
+        <section class="painel">
+
+            <h2 id="titulo-formulario">Cadastrar produto</h2>
+
+            <form id="produto-form">
+
+                <div class="campo">
+                    <label for="nome">Nome do produto</label>
+                    <input type="text" id="nome"
+                        placeholder="Ex: Teclado" required>
+                </div>
+
+                <div class="campo">
+                    <label for="preco">Preço (R$)</label>
+                    <input type="number" id="preco"
+                        placeholder="0,00" min="0.01"
+                        step="0.01" required>
+                </div>
+
+                <div class="campo">
+                    <label for="quantidade">Quantidade</label>
+                    <input type="number" id="quantidade"
+                        placeholder="0" min="0"
+                        step="1" required>
+                </div>
+
+                <div class="botoes-formulario">
+                    <button type="submit" id="btn-salvar">
+                        Cadastrar produto
+                    </button>
+
+                    <button type="button" id="btn-cancelar-edicao"
+                        class="btn-secundario" hidden>
+                        Cancelar edição
+                    </button>
+                </div>
+
+            </form>
+
+            <p id="feedback" aria-live="polite"></p>
+        </section>
+
+        <section class="painel">
+
+            <div class="topo-lista">
+                <div>
+                    <h2>Produtos cadastrados</h2>
+                    <p>Consulte e organize seu estoque.</p>
+                </div>
+
+                <button id="limpar-tabela" class="btn-perigo">
+                    Limpar estoque
+                </button>
             </div>
-        </div>
-    </div>
 
-    <!-- =====================================================
-         MODAL CONCEITO BOOTSTRAP (V5)
-    ===================================================== -->
-    <div id="modal-bootstrap" class="modal-overlay" hidden>
-        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-bs-titulo">
-            <h3 id="modal-bs-titulo">Conceito Bootstrap &amp; UX</h3>
-            <p>
-                O <strong>Bootstrap</strong> é um framework front-end amplamente utilizado para acelerar e padronizar o desenvolvimento de interfaces responsivas.
-                Ele já traz prontos componentes como modais, alertas, botões, formulários e um sistema de grid, o que evita escrever todo o CSS do zero.
-            </p>
-            <p>
-                Neste projeto V5, criamos à mão componentes inspirados nele (modais limpos, feedbacks não-bloqueantes e tipografia consistente)
-                para substituir os diálogos nativos <code>alert</code> e <code>confirm</code>. Com o Bootstrap, bastaria usar as classes
-                <code>modal</code> e <code>alert alert-danger</code> para chegar ao mesmo resultado em muito menos tempo,
-                garantindo uma experiência de usuário (UX) profissional e integrada ao design roxo estilizado.
-            </p>
-            <div class="modal-botoes">
-                <button type="button" id="modal-bs-fechar" class="btn-primary">Fechar</button>
+            <div class="filtros">
+
+                <input type="search" id="campo-busca"
+                    placeholder="Pesquisar produto...">
+
+                <select id="ordenacao">
+                    <option value="padrao">Padrão (Cadastro)</option>
+                    <option value="menor-quantidade">Menor Quantidade</option>
+                    <option value="maior-preco">Maior Preço</option>
+                    <option value="menor-preco">Menor Preço</option>
+                    <option value="alfabetica">Ordem Alfabética (A-Z)</option>
+                </select>
+
             </div>
-        </div>
-    </div>
 
-    <script src="script.js"></script>
+            <div class="tabela-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Preço</th>
+                            <th>Quantidade</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="tabela-produtos"></tbody>
+                </table>
+            </div>
+
+            <p id="mensagem-vazia">
+                Nenhum produto cadastrado.
+            </p>
+
+            <div class="acoes-dados">
+                <button id="exportar-csv">
+                    Exportar CSV
+                </button>
+
+                <button id="exportar-json">
+                    Fazer backup JSON
+                </button>
+
+                <button id="importar-json">
+                    Restaurar backup
+                </button>
+
+                <input type="file" id="arquivo-json"
+                    accept=".json,application/json" hidden>
+            </div>
+
+        </section>
+
+        <footer>
+            Sistema de Estoque V6 | Projeto de programação
+        </footer>
+
+    </main>
+
 </body>
 </html>

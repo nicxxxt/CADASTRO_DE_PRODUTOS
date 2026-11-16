@@ -1,736 +1,340 @@
-// =====================================================
-// FASE 1: CLASSE PRODUTO
-// =====================================================
 
-class Produto {
-    #preco;
-    #quantidade;
+const CHAVE_ESTOQUE = "sistema_estoque_produtos";
 
-    constructor(nome, preco, quantidade) {
-        nome = String(nome).trim();
+const formulario = document.getElementById("produto-form");
+const campoNome = document.getElementById("nome");
+const campoPreco = document.getElementById("preco");
+const campoQuantidade = document.getElementById("quantidade");
 
-        if (!nome) {
-            throw new Error("O nome do produto não pode ficar em branco.");
-        }
-
-        this.nome = nome;
-        this.preco = preco;
-        this.quantidade = quantidade;
-    }
-
-    get preco() {
-        return this.#preco;
-    }
-
-    set preco(novoPreco) {
-        novoPreco = Number(novoPreco);
-
-        if (!Number.isFinite(novoPreco) || novoPreco <= 0) {
-            throw new Error("O preço deve ser maior que zero.");
-        }
-
-        this.#preco = novoPreco;
-    }
-
-    get quantidade() {
-        return this.#quantidade;
-    }
-
-    set quantidade(novaQuantidade) {
-        novaQuantidade = Number(novaQuantidade);
-
-        if (!Number.isInteger(novaQuantidade) || novaQuantidade <= 0) {
-            throw new Error("A quantidade deve ser um inteiro maior que zero.");
-        }
-
-        this.#quantidade = novaQuantidade;
-    }
-
-    calcularSubtotal() {
-        return this.preco * this.quantidade;
-    }
-}
-
-
-// =====================================================
-// FASE 2: GERENCIAMENTO DOS PRODUTOS
-// =====================================================
-
-const listaDeProdutos = [];
-const CHAVE_STORAGE = "sistema_estoque_produtos";
-
-let indiceEdicao = null;
-let indiceAutopreenchido = null;
-
-
-// =====================================================
-// FASE 3: ELEMENTOS DO HTML
-// =====================================================
-
-const formProduto = document.getElementById("produto-form");
-const btnLimparTudo = document.getElementById("limpar-tabela");
-const totalEstoqueEl = document.getElementById("total-estoque");
-
-const nomeInput = document.getElementById("nome");
-const precoInput = document.getElementById("preco");
-const quantidadeInput = document.getElementById("quantidade");
-
+const tabela = document.getElementById("tabela-produtos");
 const campoBusca = document.getElementById("campo-busca");
+const ordenacao = document.getElementById("ordenacao");
+
 const mensagemVazia = document.getElementById("mensagem-vazia");
+const feedback = document.getElementById("feedback");
 
-const tabelaBody = document.querySelector("#tabela-produtos tbody");
+const totalProdutos = document.getElementById("quantidade-produtos");
+const totalEstoque = document.getElementById("total-estoque");
+const produtosBaixos = document.getElementById("produtos-baixos");
 
-// V5: mensagens inline
-const mensagemFeedback = document.getElementById("mensagem-feedback");
+const tituloFormulario = document.getElementById("titulo-formulario");
+const botaoSalvar = document.getElementById("btn-salvar");
+const botaoCancelar = document.getElementById("btn-cancelar-edicao");
 
-// V5: modal de confirmação
-const modalConfirmacao = document.getElementById("modal-confirmacao");
-const modalMensagem = document.getElementById("modal-mensagem");
-const modalBtnCancelar = document.getElementById("modal-btn-cancelar");
-const modalBtnConfirmar = document.getElementById("modal-btn-confirmar");
+let produtos = carregarEstoque();
+let indiceEdicao = null;
 
-// V5: modal Conceito Bootstrap
-const btnConceitoBootstrap = document.getElementById("btn-conceito-bootstrap");
-const modalBootstrap = document.getElementById("modal-bootstrap");
-const modalBsFechar = document.getElementById("modal-bs-fechar");
-
-const btnEnviar = formProduto
-    ? formProduto.querySelector('button[type="submit"]')
-    : null;
-
-const textoBotaoOriginal = btnEnviar
-    ? btnEnviar.textContent.trim()
-    : "Adicionar Produto";
-
-function alterarTextoBotao(texto) {
-    if (btnEnviar) {
-        btnEnviar.textContent = texto;
-    }
-}
-
-
-// =====================================================
-// FASE 4: MENSAGENS INLINE (SUBSTITUI O alert)
-// =====================================================
-
-let temporizadorMensagem = null;
-
-function mostrarMensagem(texto, tipo = "erro") {
-
-    if (!mensagemFeedback) return;
-
-    mensagemFeedback.textContent = texto;
-    mensagemFeedback.className = "mensagem-feedback " + tipo;
-    mensagemFeedback.hidden = false;
-
-    clearTimeout(temporizadorMensagem);
-
-    // Sucesso some sozinho; erro some depois de mais tempo
-    const duracao = tipo === "sucesso" ? 3500 : 6000;
-
-    temporizadorMensagem = setTimeout(esconderMensagem, duracao);
-}
-
-function esconderMensagem() {
-
-    if (!mensagemFeedback) return;
-
-    mensagemFeedback.hidden = true;
-    mensagemFeedback.textContent = "";
-}
-
-function marcarCampoInvalido(campo) {
-
-    campo.classList.add("campo-invalido");
-    campo.focus();
-}
-
-function limparCamposInvalidos() {
-
-    [nomeInput, precoInput, quantidadeInput].forEach(campo => {
-        campo.classList.remove("campo-invalido");
-    });
-}
-
-// Ao digitar, remove o destaque de erro do campo
-[nomeInput, precoInput, quantidadeInput].forEach(campo => {
-    campo.addEventListener("input", function() {
-        campo.classList.remove("campo-invalido");
-    });
-});
-
-
-// =====================================================
-// FASE 5: MODAIS (SUBSTITUI O confirm)
-// =====================================================
-
-let resolverConfirmacao = null;
-let elementoFocoAnterior = null;
-
-// Retorna uma Promise: true (Confirmar) ou false (Cancelar)
-function confirmarAcao(mensagem) {
-
-    return new Promise(function(resolve) {
-
-        elementoFocoAnterior = document.activeElement;
-
-        modalMensagem.textContent = mensagem;
-        modalConfirmacao.hidden = false;
-
-        resolverConfirmacao = resolve;
-
-        modalBtnCancelar.focus();
-    });
-}
-
-function fecharModalConfirmacao(resultado) {
-
-    modalConfirmacao.hidden = true;
-
-    if (resolverConfirmacao) {
-        const resolver = resolverConfirmacao;
-        resolverConfirmacao = null;
-        resolver(resultado);
-    }
-
-    if (elementoFocoAnterior && elementoFocoAnterior.focus) {
-        elementoFocoAnterior.focus();
-    }
-}
-
-modalBtnConfirmar.addEventListener("click", function() {
-    fecharModalConfirmacao(true);
-});
-
-modalBtnCancelar.addEventListener("click", function() {
-    fecharModalConfirmacao(false);
-});
-
-// Clicar fora da caixa cancela
-modalConfirmacao.addEventListener("click", function(event) {
-    if (event.target === modalConfirmacao) {
-        fecharModalConfirmacao(false);
-    }
-});
-
-// Modal Conceito Bootstrap
-
-function abrirModalBootstrap() {
-    modalBootstrap.hidden = false;
-    modalBsFechar.focus();
-}
-
-function fecharModalBootstrap() {
-    modalBootstrap.hidden = true;
-    btnConceitoBootstrap.focus();
-}
-
-btnConceitoBootstrap.addEventListener("click", abrirModalBootstrap);
-modalBsFechar.addEventListener("click", fecharModalBootstrap);
-
-modalBootstrap.addEventListener("click", function(event) {
-    if (event.target === modalBootstrap) {
-        fecharModalBootstrap();
-    }
-});
-
-// Tecla ESC fecha os modais
-document.addEventListener("keydown", function(event) {
-
-    if (event.key !== "Escape") return;
-
-    if (!modalConfirmacao.hidden) {
-        fecharModalConfirmacao(false);
-    } else if (!modalBootstrap.hidden) {
-        fecharModalBootstrap();
-    }
-});
-
-
-// =====================================================
-// FASE 6: AUTOPREENCHIMENTO DE PRODUTOS
-// =====================================================
-
-nomeInput.addEventListener("input", function() {
-
-    const nomeDigitado = nomeInput.value.trim().toLowerCase();
-
-    const indiceEncontrado = listaDeProdutos.findIndex(produto =>
-        produto.nome.toLowerCase() === nomeDigitado
-    );
-
-    if (indiceEncontrado !== -1) {
-
-        const produto = listaDeProdutos[indiceEncontrado];
-
-        // Preencher informações automaticamente
-        precoInput.value = produto.preco;
-        quantidadeInput.value = produto.quantidade;
-
-        // Ativar edição do produto encontrado
-        indiceEdicao = indiceEncontrado;
-        indiceAutopreenchido = indiceEncontrado;
-
-        alterarTextoBotao("Salvar Alterações");
-
-    } else if (indiceAutopreenchido !== null) {
-
-        // O nome digitado não corresponde mais ao produto
-        indiceEdicao = null;
-        indiceAutopreenchido = null;
-
-        precoInput.value = "";
-        quantidadeInput.value = "";
-
-        alterarTextoBotao(textoBotaoOriginal);
-    }
-});
-
-
-// =====================================================
-// FASE 7: SALVAR NO LOCALSTORAGE
-// =====================================================
-
-function salvarNoLocalStorage() {
-
-    const dadosParaSalvar = listaDeProdutos.map(produto => ({
-        nome: produto.nome,
-        preco: produto.preco,
-        quantidade: produto.quantidade
-    }));
-
-    localStorage.setItem(
-        CHAVE_STORAGE,
-        JSON.stringify(dadosParaSalvar)
-    );
-}
-
-
-// =====================================================
-// FASE 8: CARREGAR DO LOCALSTORAGE
-// =====================================================
-
-function carregarDoLocalStorage() {
-
-    const dadosSalvos = localStorage.getItem(CHAVE_STORAGE);
-
-    if (!dadosSalvos) return;
-
+function carregarEstoque() {
     try {
-
-        const produtosSalvos = JSON.parse(dadosSalvos);
-
-        if (!Array.isArray(produtosSalvos)) {
-            throw new Error("Formato de dados inválido.");
-        }
-
-        produtosSalvos.forEach(dados => {
-
-            try {
-
-                listaDeProdutos.push(
-                    new Produto(
-                        dados.nome,
-                        dados.preco,
-                        dados.quantidade
-                    )
-                );
-
-            } catch (erro) {
-                console.warn("Produto inválido ignorado:", erro.message);
-            }
-        });
-
-    } catch (erro) {
-        console.error("Erro ao carregar produtos:", erro);
+        const dados = JSON.parse(localStorage.getItem(CHAVE_ESTOQUE)) || [];
+        return Array.isArray(dados) ? dados : [];
+    } catch {
+        return [];
     }
 }
 
-
-// =====================================================
-// FASE 9: VALIDAR E ENVIAR O FORMULÁRIO
-// =====================================================
-
-if (formProduto) {
-
-    formProduto.addEventListener("submit", function(event) {
-
-        event.preventDefault();
-
-        limparCamposInvalidos();
-
-        const nome = nomeInput.value.trim();
-        const preco = Number(precoInput.value);
-        const quantidade = Number(quantidadeInput.value);
-
-        // CLÁUSULAS DE GUARDA
-
-        if (nome === "") {
-            mostrarMensagem("Digite o nome do produto.", "erro");
-            marcarCampoInvalido(nomeInput);
-            return;
-        }
-
-        if (
-            precoInput.value.trim() === "" ||
-            !Number.isFinite(preco) ||
-            preco <= 0
-        ) {
-            mostrarMensagem("Digite um preço válido (maior que zero).", "erro");
-            marcarCampoInvalido(precoInput);
-            return;
-        }
-
-        if (
-            quantidadeInput.value.trim() === "" ||
-            !Number.isInteger(quantidade) ||
-            quantidade <= 0
-        ) {
-            mostrarMensagem("Digite uma quantidade inteira válida (maior que zero).", "erro");
-            marcarCampoInvalido(quantidadeInput);
-            return;
-        }
-
-        try {
-
-            const novoProduto = new Produto(nome, preco, quantidade);
-
-            let textoSucesso;
-
-            if (indiceEdicao === null) {
-
-                // CADASTRAR PRODUTO
-                listaDeProdutos.push(novoProduto);
-                textoSucesso = "Produto cadastrado com sucesso!";
-
-            } else {
-
-                // ATUALIZAR PRODUTO EXISTENTE
-                listaDeProdutos[indiceEdicao] = novoProduto;
-                textoSucesso = "Produto atualizado com sucesso!";
-            }
-
-            salvarNoLocalStorage();
-            atualizarInterface();
-
-            // VOLTAR AO MODO DE CADASTRO
-            indiceEdicao = null;
-            indiceAutopreenchido = null;
-
-            formProduto.reset();
-
-            alterarTextoBotao(textoBotaoOriginal);
-
-            mostrarMensagem(textoSucesso, "sucesso");
-
-        } catch (erro) {
-            mostrarMensagem(erro.message, "erro");
-        }
-    });
+function salvarEstoque() {
+    localStorage.setItem(CHAVE_ESTOQUE, JSON.stringify(produtos));
 }
 
+function mostrarFeedback(mensagem) {
+    feedback.textContent = mensagem;
 
-// =====================================================
-// FASE 10: PREPARAR EDIÇÃO
-// =====================================================
+    setTimeout(() => {
+        feedback.textContent = "";
+    }, 3000);
+}
 
-function prepararEdicao(index) {
+function limparFormulario() {
+    formulario.reset();
+    indiceEdicao = null;
 
-    if (
-        !Number.isInteger(index) ||
-        index < 0 ||
-        index >= listaDeProdutos.length
-    ) {
-        mostrarMensagem("Não foi possível encontrar esse produto.", "erro");
+    tituloFormulario.textContent = "Cadastrar produto";
+    botaoSalvar.textContent = "Cadastrar produto";
+    botaoCancelar.hidden = true;
+}
+
+formulario.addEventListener("submit", function(evento) {
+    evento.preventDefault();
+
+    const nome = campoNome.value.trim();
+    const preco = Number(campoPreco.value);
+    const quantidade = Number(campoQuantidade.value);
+
+    if (!nome || !Number.isFinite(preco) || preco <= 0 ||
+        !Number.isInteger(quantidade) || quantidade < 0) {
+        mostrarFeedback("Preencha os campos com valores válidos.");
         return;
     }
 
-    const produto = listaDeProdutos[index];
+    const produto = {
+        id: indiceEdicao !== null
+            ? produtos[indiceEdicao].id
+            : Date.now().toString() + Math.random().toString(16).slice(2),
+        nome,
+        preco,
+        quantidade
+    };
 
-    limparCamposInvalidos();
-    esconderMensagem();
-
-    nomeInput.value = produto.nome;
-    precoInput.value = produto.preco;
-    quantidadeInput.value = produto.quantidade;
-
-    indiceEdicao = index;
-    indiceAutopreenchido = null;
-
-    alterarTextoBotao("Salvar Alterações");
-
-    nomeInput.focus();
-}
-
-
-// =====================================================
-// FASE 11: REMOVER UM PRODUTO (COM MODAL)
-// =====================================================
-
-async function removerProduto(index) {
-
-    if (
-        !Number.isInteger(index) ||
-        index < 0 ||
-        index >= listaDeProdutos.length
-    ) {
-        return;
+    if (indiceEdicao !== null) {
+        produtos[indiceEdicao] = produto;
+        mostrarFeedback("Produto atualizado com sucesso!");
+    } else {
+        produtos.push(produto);
+        mostrarFeedback("Produto cadastrado com sucesso!");
     }
 
-    const nomeProduto = listaDeProdutos[index].nome;
-
-    // Aguarda a resposta do usuário no modal
-    const confirmou = await confirmarAcao(
-        `Deseja realmente remover "${nomeProduto}"? Essa ação não pode ser desfeita.`
-    );
-
-    if (!confirmou) return;
-
-    listaDeProdutos.splice(index, 1);
-
-    if (indiceEdicao === index) {
-
-        indiceEdicao = null;
-        indiceAutopreenchido = null;
-
-        formProduto.reset();
-
-        alterarTextoBotao(textoBotaoOriginal);
-
-    } else if (indiceEdicao !== null && index < indiceEdicao) {
-
-        indiceEdicao--;
-    }
-
-    // Ajustar índice do autopreenchimento
-
-    if (indiceAutopreenchido === index) {
-
-        indiceAutopreenchido = null;
-
-    } else if (
-        indiceAutopreenchido !== null &&
-        index < indiceAutopreenchido
-    ) {
-
-        indiceAutopreenchido--;
-    }
-
-    salvarNoLocalStorage();
+    salvarEstoque();
+    limparFormulario();
     atualizarInterface();
+});
 
-    mostrarMensagem("Produto removido com sucesso!", "sucesso");
+botaoCancelar.addEventListener("click", limparFormulario);
+
+function editarProduto(id) {
+    const indice = produtos.findIndex(p => p.id === id);
+
+    if (indice === -1) return;
+
+    const produto = produtos[indice];
+
+    indiceEdicao = indice;
+
+    campoNome.value = produto.nome;
+    campoPreco.value = produto.preco;
+    campoQuantidade.value = produto.quantidade;
+
+    tituloFormulario.textContent = "Editar produto";
+    botaoSalvar.textContent = "Salvar alterações";
+    botaoCancelar.hidden = false;
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function excluirProduto(id) {
+    const produto = produtos.find(p => p.id === id);
 
-// =====================================================
-// FASE 12: LIMPAR TODOS OS PRODUTOS (COM MODAL)
-// =====================================================
+    if (!produto) return;
 
-if (btnLimparTudo) {
+    if (confirm(`Deseja excluir o produto "${produto.nome}"?`)) {
+        produtos = produtos.filter(p => p.id !== id);
 
-    btnLimparTudo.addEventListener("click", async function() {
-
-        if (listaDeProdutos.length === 0) {
-            mostrarMensagem("Não há produtos para excluir.", "erro");
-            return;
+        if (indiceEdicao !== null) {
+            limparFormulario();
         }
 
-        const confirmou = await confirmarAcao(
-            "Deseja realmente excluir TODOS os produtos? Essa ação não pode ser desfeita."
-        );
-
-        if (!confirmou) return;
-
-        listaDeProdutos.length = 0;
-
-        indiceEdicao = null;
-        indiceAutopreenchido = null;
-
-        localStorage.removeItem(CHAVE_STORAGE);
-
-        formProduto.reset();
-        limparCamposInvalidos();
-
-        if (campoBusca) {
-            campoBusca.value = "";
-        }
-
-        alterarTextoBotao(textoBotaoOriginal);
-
+        salvarEstoque();
         atualizarInterface();
-
-        mostrarMensagem("Todos os produtos foram excluídos.", "sucesso");
-    });
+        mostrarFeedback("Produto excluído.");
+    }
 }
-
-
-// =====================================================
-// FASE 13: FILTRAR PRODUTOS COM FILTER()
-// =====================================================
-
-function obterProdutosFiltrados() {
-
-    const termoBusca = campoBusca.value
-        .trim()
-        .toLowerCase();
-
-    return listaDeProdutos
-
-        .map((produto, index) => ({
-            produto: produto,
-            index: index
-        }))
-
-        .filter(item => {
-
-            return item.produto.nome
-                .toLowerCase()
-                .includes(termoBusca);
-        });
-}
-
-
-// =====================================================
-// FASE 14: CALCULAR TOTAL COM REDUCE()
-// =====================================================
-
-function atualizarTotalEstoque(produtosVisiveis) {
-
-    const valorTotal = produtosVisiveis.reduce(
-        (acumulador, item) => {
-            return acumulador + item.produto.calcularSubtotal();
-        },
-        0
-    );
-
-    const valorFormatado = valorTotal.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-    });
-
-    totalEstoqueEl.textContent =
-        `Total em Estoque: ${valorFormatado}`;
-}
-
-
-// =====================================================
-// FASE 15: RENDERIZAR A TABELA
-// =====================================================
-
-function renderizarTabela(produtosVisiveis) {
-
-    tabelaBody.innerHTML = "";
-
-    // VERIFICAR SE EXISTEM PRODUTOS
-
-    mensagemVazia.hidden = produtosVisiveis.length !== 0;
-
-    produtosVisiveis.forEach(item => {
-
-        const produto = item.produto;
-        const index = item.index;
-
-        const linha = document.createElement("tr");
-
-        // NOME
-
-        const celulaNome = document.createElement("td");
-        celulaNome.textContent = produto.nome;
-
-        // PREÇO
-
-        const celulaPreco = document.createElement("td");
-
-        celulaPreco.textContent = produto.preco.toLocaleString(
-            "pt-BR",
-            { style: "currency", currency: "BRL" }
-        );
-
-        // QUANTIDADE
-
-        const celulaQuantidade = document.createElement("td");
-        celulaQuantidade.textContent = produto.quantidade;
-
-        // SUBTOTAL
-
-        const celulaSubtotal = document.createElement("td");
-
-        celulaSubtotal.textContent =
-            produto.calcularSubtotal().toLocaleString(
-                "pt-BR",
-                { style: "currency", currency: "BRL" }
-            );
-
-        // AÇÕES
-
-        const celulaAcoes = document.createElement("td");
-
-        const btnEditar = document.createElement("button");
-
-        btnEditar.type = "button";
-        btnEditar.className = "btn-editar";
-        btnEditar.textContent = "Editar";
-
-        btnEditar.addEventListener("click", function() {
-            prepararEdicao(index);
-        });
-
-        const btnRemover = document.createElement("button");
-
-        btnRemover.type = "button";
-        btnRemover.className = "btn-remover";
-        btnRemover.textContent = "Remover";
-
-        btnRemover.addEventListener("click", function() {
-            removerProduto(index);
-        });
-
-        celulaAcoes.append(btnEditar, btnRemover);
-
-        linha.append(
-            celulaNome,
-            celulaPreco,
-            celulaQuantidade,
-            celulaSubtotal,
-            celulaAcoes
-        );
-
-        tabelaBody.appendChild(linha);
-    });
-}
-
-
-// =====================================================
-// FASE 16: ATUALIZAR INTERFACE
-// =====================================================
 
 function atualizarInterface() {
+    tabela.innerHTML = "";
 
-    const produtosVisiveis = obterProdutosFiltrados();
+    const pesquisa = campoBusca.value.toLowerCase().trim();
 
-    renderizarTabela(produtosVisiveis);
+    let lista = produtos
+        .map(produto => produto)
+        .filter(produto => produto.nome.toLowerCase().includes(pesquisa));
 
-    atualizarTotalEstoque(produtosVisiveis);
-}
+    switch (ordenacao.value) {
+        case "menor-quantidade":
+            lista.sort((a, b) => a.quantidade - b.quantidade);
+            break;
 
+        case "maior-preco":
+            lista.sort((a, b) => b.preco - a.preco);
+            break;
 
-// =====================================================
-// FASE 17: PESQUISA DINÂMICA COM EVENTO INPUT
-// =====================================================
+        case "menor-preco":
+            lista.sort((a, b) => a.preco - b.preco);
+            break;
 
-if (campoBusca) {
+        case "alfabetica":
+            lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+            break;
+    }
 
-    campoBusca.addEventListener("input", function() {
-        atualizarInterface();
+    lista.forEach(produto => {
+        const linha = document.createElement("tr");
+
+        if (produto.quantidade <= 3) {
+            linha.classList.add("linha-baixa");
+        }
+
+        const status = produto.quantidade <= 3
+            ? '<span class="status status-baixo">Estoque baixo</span>'
+            : '<span class="status status-ok">Normal</span>';
+
+        linha.innerHTML = `
+            <td>${escaparHTML(produto.nome)}</td>
+            <td>${produto.preco.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL"
+            })}</td>
+            <td>${produto.quantidade}</td>
+            <td>${status}</td>
+            <td>
+                <button class="btn-editar" data-acao="editar">Editar</button>
+                <button class="btn-excluir" data-acao="excluir">Excluir</button>
+            </td>
+        `;
+
+        linha.querySelector('[data-acao="editar"]')
+            .addEventListener("click", () => editarProduto(produto.id));
+
+        linha.querySelector('[data-acao="excluir"]')
+            .addEventListener("click", () => excluirProduto(produto.id));
+
+        tabela.appendChild(linha);
     });
+
+    mensagemVazia.hidden = lista.length > 0;
+
+    totalProdutos.textContent = produtos.length;
+
+    totalEstoque.textContent = produtos.reduce(
+        (total, produto) => total + produto.quantidade, 0
+    );
+
+    produtosBaixos.textContent = produtos.filter(
+        produto => produto.quantidade <= 3
+    ).length;
 }
 
+function escaparHTML(texto) {
+    return String(texto).replace(/[&<>"']/g, caractere => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    })[caractere]);
+}
 
-// =====================================================
-// FASE 18: INICIAR O SISTEMA
-// =====================================================
+campoBusca.addEventListener("input", atualizarInterface);
+ordenacao.addEventListener("change", atualizarInterface);
 
-carregarDoLocalStorage();
+document.getElementById("limpar-tabela").addEventListener("click", () => {
+    if (produtos.length === 0) return;
 
+    if (confirm("Deseja realmente apagar todos os produtos?")) {
+        produtos = [];
+        limparFormulario();
+        salvarEstoque();
+        atualizarInterface();
+        mostrarFeedback("Estoque limpo com sucesso!");
+    }
+});
+
+function baixarArquivo(nome, conteudo, tipo) {
+    const arquivo = new Blob([conteudo], { type: tipo });
+    const endereco = URL.createObjectURL(arquivo);
+
+    const link = document.createElement("a");
+    link.href = endereco;
+    link.download = nome;
+    link.click();
+
+    URL.revokeObjectURL(endereco);
+}
+
+// EXPORTAR CSV
+document.getElementById("exportar-csv").addEventListener("click", () => {
+    const cabecalho = ["Nome", "Preço", "Quantidade", "Status"];
+
+    const linhas = produtos.map(produto => [
+        produto.nome,
+        produto.preco.toFixed(2),
+        produto.quantidade,
+        produto.quantidade <= 3 ? "Estoque baixo" : "Normal"
+    ]);
+
+    const csv = [cabecalho, ...linhas]
+        .map(linha => linha.map(valor =>
+            `"${String(valor).replace(/"/g, '""')}"`
+        ).join(";"))
+        .join("\n");
+
+    baixarArquivo(
+        "estoque.csv",
+        "\uFEFF" + csv,
+        "text/csv;charset=utf-8;"
+    );
+});
+
+// EXPORTAR BACKUP JSON
+document.getElementById("exportar-json").addEventListener("click", () => {
+    const backup = JSON.stringify(produtos, null, 2);
+
+    baixarArquivo(
+        "backup_estoque.json",
+        backup,
+        "application/json"
+    );
+});
+
+// IMPORTAR BACKUP JSON
+const arquivoJson = document.getElementById("arquivo-json");
+
+document.getElementById("importar-json").addEventListener("click", () => {
+    arquivoJson.click();
+});
+
+arquivoJson.addEventListener("change", function() {
+    const arquivo = this.files[0];
+
+    if (!arquivo) return;
+
+    const leitor = new FileReader();
+
+    leitor.onload = function(evento) {
+        try {
+            const dados = JSON.parse(evento.target.result);
+
+            if (!Array.isArray(dados)) {
+                throw new Error("Formato inválido");
+            }
+
+            const dadosValidos = dados.every(produto =>
+                produto &&
+                typeof produto.nome === "string" &&
+                Number.isFinite(Number(produto.preco)) &&
+                Number(produto.preco) > 0 &&
+                Number.isInteger(Number(produto.quantidade)) &&
+                Number(produto.quantidade) >= 0
+            );
+
+            if (!dadosValidos) {
+                throw new Error("Produtos inválidos");
+            }
+
+            produtos = dados.map(produto => ({
+                id: produto.id || (
+                    Date.now().toString() +
+                    Math.random().toString(16).slice(2)
+                ),
+                nome: produto.nome,
+                preco: Number(produto.preco),
+                quantidade: Number(produto.quantidade)
+            }));
+
+            salvarEstoque();
+            limparFormulario();
+            atualizarInterface();
+
+            mostrarFeedback("Backup restaurado com sucesso!");
+
+        } catch {
+            alert("Não foi possível restaurar. Verifique o arquivo JSON.");
+        }
+
+        arquivoJson.value = "";
+    };
+
+    leitor.readAsText(arquivo);
+});
+
+// INICIALIZAÇÃO
 atualizarInterface();
